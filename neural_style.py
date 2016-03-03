@@ -14,6 +14,7 @@ LEARNING_RATE = 1e1
 STYLE_SCALE = 1.0
 ITERATIONS = 1000
 VGG_PATH = 'imagenet-vgg-verydeep-19.mat'
+# imagenet-vgg-verydeep-19
 
 
 def build_parser():
@@ -115,6 +116,9 @@ def imread(path):
 
 def imsave(path, img):
     img = np.clip(img, 0, 255).astype(np.uint8)
+    # print "saving..."
+    # print img
+    # print "type: ", type(img)
     scipy.misc.imsave(path, img)
 
 

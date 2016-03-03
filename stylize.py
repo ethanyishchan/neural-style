@@ -2,17 +2,21 @@ import vgg
 
 import tensorflow as tf
 import numpy as np
-
+# import scipy.misc
+from neural_style import *
 from sys import stderr
 
 CONTENT_LAYER = 'relu4_2'
-STYLE_LAYERS = ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
+# STYLE_LAYERS = ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
+
+STYLE_LAYERS = ('relu1_1',)
 
 
 def stylize(network, initial, content, styles, iterations,
         content_weight, style_weight, style_blend_weights, tv_weight,
         learning_rate, print_iterations=None, checkpoint_iterations=None):
     shape = (1,) + content.shape
+    print "shape: ", shape
     style_shapes = [(1,) + style.shape for style in styles]
     content_features = {}
     style_features = [{} for _ in styles]
@@ -25,20 +29,28 @@ def stylize(network, initial, content, styles, iterations,
         content_pre = np.array([vgg.preprocess(content, mean_pixel)])
         content_features[CONTENT_LAYER] = net[CONTENT_LAYER].eval(
                 feed_dict={image: content_pre})
+        print "content features - content layer - shape: ", content_features[CONTENT_LAYER].shape
+
 
     # compute style features in feedforward mode
+    print "length styles: ", len(styles)
+    print "styles 0: ", styles[0]
     for i in range(len(styles)):
+        print "curr style i: ", i
         g = tf.Graph()
         with g.as_default(), g.device('/cpu:0'), tf.Session() as sess:
             image = tf.placeholder('float', shape=style_shapes[i])
             net, _ = vgg.net(network, image)
             style_pre = np.array([vgg.preprocess(styles[i], mean_pixel)])
             for layer in STYLE_LAYERS:
+                # print "layer: ", layer
+                # print "net layer ", net[layer]
                 features = net[layer].eval(feed_dict={image: style_pre})
                 features = np.reshape(features, (-1, features.shape[3]))
                 gram = np.matmul(features.T, features) / features.size
                 style_features[i][layer] = gram
-
+    for lyr in STYLE_LAYERS:
+        print "style features: ", "lyr num: ", lyr, style_features[0][lyr].shape
     # make stylized image using backpropogation
     with tf.Graph().as_default():
         if initial is None:
@@ -96,6 +108,7 @@ def stylize(network, initial, content, styles, iterations,
             sess.run(tf.initialize_all_variables())
             for i in range(iterations):
                 print_progress(i)
+                
                 print >> stderr, 'Iteration %d/%d' % (i + 1, iterations)
                 train_step.run()
                 if (checkpoint_iterations is not None and
@@ -105,6 +118,11 @@ def stylize(network, initial, content, styles, iterations,
                         best_loss = this_loss
                         best = image.eval()
                 print_progress(None, i == iterations - 1)
+
+                if i % 10 == 0 and best is not None:
+                    tmp_img = vgg.unprocess(best.reshape(shape[1:]), mean_pixel)
+                    imsave("iter" + str(i) + ".jpg", tmp_img)
+
             return vgg.unprocess(best.reshape(shape[1:]), mean_pixel)
 
 
