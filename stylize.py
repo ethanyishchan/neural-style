@@ -2,13 +2,11 @@ import vgg
 
 import tensorflow as tf
 import numpy as np
-# import scipy.misc
 from neural_style import *
 from sys import stderr
 
 CONTENT_LAYER = 'relu4_2'
-# STYLE_LAYERS = ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
-
+STYLE_LAYERS = ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
 STYLE_LAYERS = ('relu1_1',)
 
 
@@ -16,7 +14,6 @@ def stylize(network, initial, content, styles, iterations,
         content_weight, style_weight, style_blend_weights, tv_weight,
         learning_rate, print_iterations=None, checkpoint_iterations=None):
     shape = (1,) + content.shape
-    print "shape: ", shape
     style_shapes = [(1,) + style.shape for style in styles]
     content_features = {}
     style_features = [{} for _ in styles]
@@ -29,28 +26,28 @@ def stylize(network, initial, content, styles, iterations,
         content_pre = np.array([vgg.preprocess(content, mean_pixel)])
         content_features[CONTENT_LAYER] = net[CONTENT_LAYER].eval(
                 feed_dict={image: content_pre})
-        print "content features - content layer - shape: ", content_features[CONTENT_LAYER].shape
-
 
     # compute style features in feedforward mode
-    print "length styles: ", len(styles)
-    print "styles 0: ", styles[0]
     for i in range(len(styles)):
-        print "curr style i: ", i
         g = tf.Graph()
         with g.as_default(), g.device('/cpu:0'), tf.Session() as sess:
             image = tf.placeholder('float', shape=style_shapes[i])
             net, _ = vgg.net(network, image)
             style_pre = np.array([vgg.preprocess(styles[i], mean_pixel)])
             for layer in STYLE_LAYERS:
-                # print "layer: ", layer
-                # print "net layer ", net[layer]
                 features = net[layer].eval(feed_dict={image: style_pre})
+                print 'Initial feature shape: ', features.shape
                 features = np.reshape(features, (-1, features.shape[3]))
+                #mask = np.zeros_like(features)
+                #mask[:49664/2, :] = 1
+                #print 'Mask shape', mask.shape
+                print 'Final features shape', features.shape
+                #features = features*mask
                 gram = np.matmul(features.T, features) / features.size
+                print 'Gram matrix shape: ', gram.shape
                 style_features[i][layer] = gram
-    for lyr in STYLE_LAYERS:
-        print "style features: ", "lyr num: ", lyr, style_features[0][lyr].shape
+
+    #sys.exit()
     # make stylized image using backpropogation
     with tf.Graph().as_default():
         if initial is None:
@@ -73,8 +70,21 @@ def stylize(network, initial, content, styles, iterations,
             for style_layer in STYLE_LAYERS:
                 layer = net[style_layer]
                 _, height, width, number = map(lambda i: i.value, layer.get_shape())
+                print 'Height, width, number', height, width, number
                 size = height * width * number
                 feats = tf.reshape(layer, (-1, number))
+                
+                #print tf.shape(feats).as_list()
+                mask = np.zeros((height*width, number), dtype=np.float32)
+                maskt = np.reshape(imread('mask.jpg').astype(np.float32), (height*width,))
+                for d in xrange(number):
+                    mask[:,d] = maskt
+                #print 'Mask shape', mask.shape
+                #mask[:height*width/2, :] = 1
+                mask = tf.constant(mask)
+                feats = tf.mul(feats,mask)
+
+
                 gram = tf.matmul(tf.transpose(feats), feats) / size
                 style_gram = style_features[i][style_layer]
                 style_losses.append(2 * tf.nn.l2_loss(gram - style_gram) / style_gram.size)
@@ -108,7 +118,6 @@ def stylize(network, initial, content, styles, iterations,
             sess.run(tf.initialize_all_variables())
             for i in range(iterations):
                 print_progress(i)
-                
                 print >> stderr, 'Iteration %d/%d' % (i + 1, iterations)
                 train_step.run()
                 if (checkpoint_iterations is not None and
