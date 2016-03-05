@@ -76,18 +76,26 @@ def stylize(network, initial, content, styles, iterations,
                 
                 #print tf.shape(feats).as_list()
                 mask = np.zeros((height*width, number), dtype=np.float32)
-                maskt = np.reshape(imread('mask.jpg').astype(np.float32), (height*width,))
+                maskt = np.reshape(imread('bottle_mask.jpg').astype(np.float32), (height*width,))
+                maskt = maskt > 100
                 for d in xrange(number):
                     mask[:,d] = maskt
-                #print 'Mask shape', mask.shape
+                print 'Mask shape', mask.shape
+                #print sum(sum(mask == 1)) + sum(sum(mask == 0))
                 #mask[:height*width/2, :] = 1
-                mask = tf.constant(mask)
-                feats = tf.mul(feats,mask)
+                if i == 0:
+                    mask = tf.constant(mask)
+                    feats = tf.mul(feats,mask)
 
-
-                gram = tf.matmul(tf.transpose(feats), feats) / size
-                style_gram = style_features[i][style_layer]
-                style_losses.append(2 * tf.nn.l2_loss(gram - style_gram) / style_gram.size)
+                    gram = tf.matmul(tf.transpose(feats), feats) / size
+                    style_gram = style_features[i][style_layer]
+                    style_losses.append(2 * tf.nn.l2_loss(gram - style_gram) / style_gram.size)
+                else:
+                    mask2 = mask < 1
+                    feats2 = tf.mul(feats,mask2)
+                    gram2 = tf.matmul(tf.transpose(feats2), feats2) / size
+                    style_gram = style_features[i][style_layer]
+                    style_losses.append(2 * tf.nn.l2_loss(gram2 - style_gram) / style_gram.size)
             style_loss += style_weight * style_blend_weights[i] * reduce(tf.add, style_losses)
         # total variation denoising
         tv_y_size = _tensor_size(image[:,1:,:,:])
