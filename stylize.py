@@ -75,16 +75,25 @@ def stylize(network, initial, content, styles, iterations,
                 feats = tf.reshape(layer, (-1, number))
                 
                 #print tf.shape(feats).as_list()
+                print 'Height', height
+                print 'Weight', width
+                print 'Number', number
+                print style_features[i][style_layer].shape
+
                 mask = np.zeros((height*width, number), dtype=np.float32)
-                maskt = np.reshape(imread('bottle_mask.jpg').astype(np.float32), (height*width,))
+                maskt = np.reshape(imread('emma/emma_test_mask.jpg').astype(np.float32), (height*width,))
                 maskt = maskt > 100
                 for d in xrange(number):
                     mask[:,d] = maskt
                 print 'Mask shape', mask.shape
+                if style_layer == 'relu2_1':
+                    b = mask.reshape(height*width*2, 2, number/2,2)
+                    mask = b.max(axis=1).max(axis=2)
                 #print sum(sum(mask == 1)) + sum(sum(mask == 0))
                 #mask[:height*width/2, :] = 1
                 if i == 0:
                     mask = tf.constant(mask)
+                    print 'Mask shape', map(lambda i: i.value, mask.get_shape())
                     feats = tf.mul(feats,mask)
 
                     gram = tf.matmul(tf.transpose(feats), feats) / size
