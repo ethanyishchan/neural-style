@@ -8,6 +8,7 @@ from sys import stderr
 CONTENT_LAYER = 'relu4_2'
 STYLE_LAYERS = ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
 STYLE_LAYERS = ('relu1_1',)
+STYLE_LAYERS = ('relu1_1', 'relu2_1',)
 
 
 def stylize(network, initial, content, styles, iterations,
@@ -78,19 +79,30 @@ def stylize(network, initial, content, styles, iterations,
                 print 'Height', height
                 print 'Weight', width
                 print 'Number', number
-                print style_features[i][style_layer].shape
-
-                mask = np.zeros((height*width, number), dtype=np.float32)
-                maskt = np.reshape(imread('emma/emma_test_mask.jpg').astype(np.float32), (height*width,))
-                maskt = maskt > 100
-                for d in xrange(number):
-                    mask[:,d] = maskt
-                print 'Mask shape', mask.shape
+                print 'Style features shape', style_features[i][style_layer].shape
+                print style_layer
+                
                 if style_layer == 'relu2_1':
-                    b = mask.reshape(height*width*2, 2, number/2,2)
-                    mask = b.max(axis=1).max(axis=2)
-                #print sum(sum(mask == 1)) + sum(sum(mask == 0))
-                #mask[:height*width/2, :] = 1
+                    mask = np.zeros((height*width, number), dtype=np.float32)
+                    temp = imread('emma/emma_test_mask.jpg').astype(np.float32)
+                    c = temp.reshape(height,2,width,2)
+                    temp = c.max(axis=1).max(axis=2)
+                    print temp.shape
+                    maskt = np.reshape(temp, (height*width,))
+                    maskt = maskt > 100
+                    for d in xrange(number):
+                        mask[:,d] = maskt
+                    print 'Mask shape', mask.shape
+                    #b = mask.reshape(height*width*2, 2, number/2,2)
+                    #mask = b.max(axis=1).max(axis=2)
+                    #print 'New mask shape', mask.shape
+                else:
+                    mask = np.zeros((height*width, number), dtype=np.float32)
+                    maskt = np.reshape(imread('emma/emma_test_mask.jpg').astype(np.float32), (height*width,))
+                    maskt = maskt > 100
+                    for d in xrange(number):
+                        mask[:,d] = maskt
+                    print 'Mask shape', mask.shape
                 if i == 0:
                     mask = tf.constant(mask)
                     print 'Mask shape', map(lambda i: i.value, mask.get_shape())
